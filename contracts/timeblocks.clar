@@ -1,6 +1,7 @@
 ;; Constants
 (define-constant TOKEN_SUPPLY u1000000) ;; Maximum supply of reward tokens
 (define-constant REWARD_AMOUNT u10) ;; Tokens awarded per completed session
+(define-constant BREAK_TIME u5) ;; Time in minutes after which the break reminder will occur
 
 ;; Data Variables
 (define-data-var total-tokens-minted uint u0) ;; Tracks the total tokens minted
@@ -57,7 +58,10 @@
       ;; Check token supply limits
       (if (> (var-get total-tokens-minted) TOKEN_SUPPLY)
         (err u1000) ;; Error: Maximum token supply reached
-        (ok { message: "Session completed, duration recorded, and rewards issued!" })
+        (begin
+          ;; Notify user to take a break after completing a session
+          (ok { message: "Session completed, duration recorded, rewards issued! Take a break now. Stay refreshed!" })
+        )
       )
     )
   )
