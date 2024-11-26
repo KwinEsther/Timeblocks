@@ -20,20 +20,4 @@ A decentralized Pomodoro timer built on the Stacks blockchain using Clarity. Tim
    Users can view their focus streaks and overall productivity records using read-only functions.  
 
 4. **Earn Rewards:**  
-   Consistent focus sessions and streaks earn additional rewards, encouraging productivity.  
-
----
-
-## Prerequisites  
-- [Node.js](https://nodejs.org/) (v16 or higher recommended)  
-- [Clarinet](https://github.com/hirosystems/clarinet) for Clarity development  
-- A Stacks wallet (e.g., [Hiro Wallet](https://www.hiro.so/wallet))  
-
----
-
-## Installation  
-
-### 1. Clone the Repository  
-```bash  
-git clone https://github.com/your-username/timeblocks.git  
-cd timeblocks  
+   Consistent focus sessions and streaks earn additional rewards, encouraging productivity.
