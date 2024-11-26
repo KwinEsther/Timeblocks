@@ -10,28 +10,44 @@
 ;; Data Maps
 (define-map user-sessions principal uint) ;; Tracks completed sessions per user
 (define-map user-rewards principal uint) ;; Tracks reward tokens per user
+(define-map user-session-start-time principal uint) ;; Tracks the start time of the current session per user (using session count)
+(define-map user-session-duration principal uint) ;; Tracks session durations for each user
 
 ;; Public Functions
 
-;; Start a Pomodoro session
+;; Start a Pomodoro session (simulate start time with session counter)
 (define-public (start-session)
-  (begin
-    ;; Log session start (for user tracking)
-    (ok { message: "Pomodoro session started. Stay focused!" })
+  (let
+    (
+      (caller tx-sender) ;; Current user
+      (current-session (default-to u0 (map-get? user-sessions caller))) ;; Get current session number
+    )
+    (begin
+      ;; "Simulate" session start by incrementing session count
+      (map-set user-sessions caller (+ current-session u1))
+      
+      ;; Log session start (for user tracking)
+      (ok { message: "Pomodoro session started. Stay focused!" })
+    )
   )
 )
 
-;; Complete a session and reward tokens
+;; Complete a session, calculate the duration (using session count), and reward tokens
 (define-public (complete-session)
   (let
     (
       (caller tx-sender) ;; Current user
       (current-sessions (default-to u0 (map-get? user-sessions caller))) ;; User's completed sessions
       (current-rewards (default-to u0 (map-get? user-rewards caller))) ;; User's current reward balance
+      (start-time (default-to u0 (map-get? user-session-start-time caller))) ;; Get the start time of the session
+      (end-time current-sessions) ;; Use the current session number as the "end time"
+      (session-duration (- end-time start-time)) ;; Calculate session duration (simulated)
     )
     (begin
+      ;; Store the session duration for the user
+      (map-set user-session-duration caller session-duration)
+      
       ;; Update user data
-      (map-set user-sessions caller (+ current-sessions u1))
       (map-set user-rewards caller (+ current-rewards REWARD_AMOUNT))
 
       ;; Increment global metrics
@@ -41,7 +57,7 @@
       ;; Check token supply limits
       (if (> (var-get total-tokens-minted) TOKEN_SUPPLY)
         (err u1000) ;; Error: Maximum token supply reached
-        (ok { message: "Session completed and rewards issued!" })
+        (ok { message: "Session completed, duration recorded, and rewards issued!" })
       )
     )
   )
@@ -77,6 +93,11 @@
 ;; Get reward balance for a user
 (define-read-only (get-reward-balance (user principal))
   (default-to u0 (map-get? user-rewards user))
+)
+
+;; Get the duration of the most recent session for a user
+(define-read-only (get-session-duration (user principal))
+  (default-to u0 (map-get? user-session-duration user))
 )
 
 ;; Get global stats: total sessions and minted tokens
