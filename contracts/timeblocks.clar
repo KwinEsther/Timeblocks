@@ -1,11 +1,12 @@
 ;; Constants
-(define-constant TOKEN_SUPPLY u1000000) ;; Maximum supply of reward tokens
-(define-constant BASE_REWARD_AMOUNT u10) ;; Base tokens awarded per completed session
-(define-constant STREAK_BONUS u2) ;; Additional bonus for maintaining a streak
-(define-constant MAX_STREAK u7) ;; Maximum streak days for bonus calculation
-(define-constant ERR_INVALID_SESSION u1) ;; Error code for invalid session
-(define-constant ERR_NO_REWARDS u2) ;; Error code for no rewards to claim
-(define-constant ERR_SUPPLY_EXCEEDED u3) ;; Error code for token supply exceeded
+(define-constant TOKEN_SUPPLY u1000000)
+(define-constant BASE_REWARD_AMOUNT u10)
+(define-constant STREAK_BONUS u2)
+(define-constant MAX_STREAK u7)
+(define-constant ERR_INVALID_SESSION u1)
+(define-constant ERR_NO_REWARDS u2)
+(define-constant ERR_SUPPLY_EXCEEDED u3)
+(define-constant BLOCKS_PER_DAY u144)
 
 ;; Data Variables
 (define-data-var total-tokens-minted uint u0)
@@ -25,10 +26,9 @@
   (let
     (
       (caller tx-sender)
-      (current-block (unwrap-panic (get-block-info? time (- block-height u1))))
     )
     (asserts! (> duration u0) (err ERR_INVALID_SESSION))
-    (map-set user-session-start caller current-block)
+    (map-set user-session-start caller burn-block-height)
     (ok true)
   )
 )
@@ -37,22 +37,21 @@
   (let
     (
       (caller tx-sender)
-      (start-time (default-to u0 (map-get? user-session-start caller)))
-      (current-block (unwrap-panic (get-block-info? time (- block-height u1))))
-      (actual-duration (- current-block start-time))
-      (last-session-day (default-to u0 (map-get? user-last-session caller)))
-      (current-day (/ current-block u86400))
+      (start-block (default-to u0 (map-get? user-session-start caller)))
+      (blocks-passed (- burn-block-height start-block))
+      (last-session-block (default-to u0 (map-get? user-last-session caller)))
       (streak (default-to u0 (map-get? user-streak caller)))
-      (reward-amount (+ BASE_REWARD_AMOUNT (* (min streak MAX_STREAK) STREAK_BONUS)))
+      (capped-streak (if (<= streak MAX_STREAK) streak MAX_STREAK))
+      (reward-amount (+ BASE_REWARD_AMOUNT (* capped-streak STREAK_BONUS)))
     )
-    (asserts! (and (> start-time u0) (>= actual-duration duration)) (err ERR_INVALID_SESSION))
+    (asserts! (and (> start-block u0) (>= blocks-passed duration)) (err ERR_INVALID_SESSION))
     (map-set user-sessions caller (+ (default-to u0 (map-get? user-sessions caller)) u1))
     (map-set user-rewards caller (+ (default-to u0 (map-get? user-rewards caller)) reward-amount))
-    (if (is-eq last-session-day (- current-day u1))
+    (if (< (- burn-block-height last-session-block) BLOCKS_PER_DAY)
       (map-set user-streak caller (+ streak u1))
       (map-set user-streak caller u1)
     )
-    (map-set user-last-session caller current-day)
+    (map-set user-last-session caller burn-block-height)
     (var-set total-sessions (+ (var-get total-sessions) u1))
     (var-set total-tokens-minted (+ (var-get total-tokens-minted) reward-amount))
     (asserts! (<= (var-get total-tokens-minted) TOKEN_SUPPLY) (err ERR_SUPPLY_EXCEEDED))
