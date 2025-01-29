@@ -7,6 +7,9 @@
 (define-constant ERR_NO_REWARDS u2)
 (define-constant ERR_SUPPLY_EXCEEDED u3)
 (define-constant BLOCKS_PER_DAY u144)
+(define-constant STAKE_MULTIPLIER u2)
+(define-constant MIN_STAKE_DURATION u288)
+(define-constant EARLY_UNSTAKE_PENALTY u10)
 
 ;; Data Variables
 (define-data-var total-tokens-minted uint u0)
@@ -19,6 +22,8 @@
 (define-map user-session-start principal uint)
 (define-map user-streak principal uint)
 (define-map user-last-session principal uint)
+(define-map user-stakes principal uint)
+(define-map user-stake-start-block principal uint)
 
 ;; Public Functions
 
@@ -68,6 +73,40 @@
     (asserts! (> reward-balance u0) (err ERR_NO_REWARDS))
     (map-set user-rewards caller u0)
     (ok reward-balance)
+  )
+)
+
+;; New Staking Features
+
+(define-public (stake-tokens (amount uint))
+  (let
+    (
+      (caller tx-sender)
+    )
+    (asserts! (> amount u0) (err ERR_INVALID_SESSION))
+    (asserts! (>= (var-get total-tokens-minted) amount) (err ERR_SUPPLY_EXCEEDED))
+    (map-set user-stakes caller amount)
+    (map-set user-stake-start-block caller burn-block-height)
+    (var-set total-tokens-minted (- (var-get total-tokens-minted) amount))
+    (ok amount)
+  )
+)
+
+(define-public (unstake-tokens)
+  (let
+    (
+      (caller tx-sender)
+      (stake-data (default-to u0 (map-get? user-stakes caller)))
+      (stake-start-block (default-to u0 (map-get? user-stake-start-block caller)))
+      (blocks-staked (- burn-block-height stake-start-block))
+      (penalty (if (< blocks-staked MIN_STAKE_DURATION) (/ (* stake-data EARLY_UNSTAKE_PENALTY) u100) u0))
+      (final-amount (- stake-data penalty))
+    )
+    (asserts! (> stake-data u0) (err ERR_NO_REWARDS))
+    (map-set user-stakes caller u0)
+    (map-set user-stake-start-block caller u0)
+    (var-set total-tokens-minted (+ (var-get total-tokens-minted) final-amount))
+    (ok final-amount)
   )
 )
 
